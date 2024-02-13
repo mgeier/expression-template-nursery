@@ -1,4 +1,4 @@
-use std::ops::{Mul, AddAssign};
+use std::ops::{AddAssign, Mul};
 
 #[derive(Copy, Clone)]
 struct Slice<'a> {
@@ -23,8 +23,7 @@ impl<'a> Mul<f32> for Slice<'a> {
     }
 }
 
-// TODO: LazySlice must outlive MutSlice?
-impl<'a, 'b> AddAssign<LazySlice<'a>> for MutSlice<'b> {
+impl<'a> AddAssign<LazySlice<'a>> for MutSlice<'_> {
     fn add_assign(&mut self, rhs: LazySlice<'a>) {
         // TODO: assert same length
 
@@ -45,14 +44,21 @@ fn main() {
     //a *= 4.0;
 
     let array = [1., 2., 3., 4.];
-    // TODO: allow uninitialized data?
     let mut target = [0., 0., 0., 0.];
 
-    let e = Slice { data: &array };
     let mut d = MutSlice { data: &mut target };
 
-    d += e * 2.0;
-    //dbg!(target);
-    d += e * 10.0;
+    {
+        let e = Slice { data: &array };
+
+        d += e * 2.0;
+        dbg!(&d.data);
+        //dbg!(target);
+        d += e * 10.0;
+        // NB: target can live longer than the source slice
+    }
+    dbg!(target);
+    let mut g = MutSlice { data: &mut target };
+    g += Slice { data: &array } * 100.0;
     dbg!(target);
 }
