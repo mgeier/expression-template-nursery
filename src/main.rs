@@ -6,8 +6,12 @@
 
 // TODO: support both dynamic and const size for blocks/slices?
 
+// TODO: better name? View, Slice, Span, ...?
 #[derive(Copy, Clone)]
 struct Slice<'a> {
+    // This doesn't really have to be a slice for now (could be any IntoIterator),
+    // but we might want to implement (multi-channel) indexing/slicing at some point,
+    // which will not work efficiently with interators.
     data: &'a [f32],
 }
 
