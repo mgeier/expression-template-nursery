@@ -11,6 +11,14 @@ struct Slice<'a> {
     data: &'a [f32],
 }
 
+impl<'a> IntoIterator for Slice<'a> {
+    type Item = &'a f32;
+    type IntoIter = <&'a [f32] as IntoIterator>::IntoIter;
+    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+        self.data.iter()
+    }
+}
+
 struct MutSlice<'a> {
     data: &'a mut [f32],
 }
@@ -21,22 +29,12 @@ struct MulVS<L, R> {
     rhs: R,
 }
 
-/*
 impl<'a> std::ops::Mul<f32> for Slice<'a> {
     type Output = MulVS<Slice<'a>, f32>;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output { lhs: self, rhs }
-    }
-}
-*/
-
-impl<'a> std::ops::Mul<f32> for Slice<'a> {
-    type Output = MulVS<&'a [f32], f32>;
-
-    fn mul(self, rhs: f32) -> Self::Output {
         Self::Output {
-            lhs: self.data,
+            lhs: self,
             rhs,
         }
     }
