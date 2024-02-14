@@ -33,6 +33,13 @@ struct MulVS<L, R> {
     rhs: R,
 }
 
+impl<L, R> std::ops::Deref for MulVS<L, R> {
+    type Target = Expr<MulVS<L, R>>;
+    fn deref(&self) -> Self::Target {
+        Expr(MulVS { lhs: self.lhs, rhs: self.rhs})
+    }
+}
+
 impl<'a> std::ops::Mul<f32> for Slice<'a> {
     type Output = MulVS<Slice<'a>, f32>;
 
@@ -44,6 +51,21 @@ impl<'a> std::ops::Mul<f32> for Slice<'a> {
     }
 }
 
+// TODO: Copy, Clone? pub?
+struct Expr<T>(T);
+
+struct AddOp<L, R> {
+    lhs: L,
+    rhs: R,
+}
+
+impl<L, R> std::ops::Add<Expr<R>> for Expr<L> {
+    type Output = Expr<AddOp<Expr<L>, Expr<R>>>;
+    fn add(self, rhs: Expr<R>) -> Self::Output {
+        Expr(AddOp{ lhs: self, rhs})
+    }
+}
+
 impl<'r, L, R> std::ops::AddAssign<MulVS<L, R>> for MutSlice<'_>
 where
     R: 'r + Copy,
@@ -52,7 +74,7 @@ where
     f32: std::ops::AddAssign<R::Output>,
 {
     fn add_assign(&mut self, rhs: MulVS<L, R>) {
-        // TODO: assert same length
+        // TODO: assert same length (via size hint?)
 
         for (src, target) in rhs.lhs.into_iter().zip(self.data.iter_mut()) {
             *target += *src * rhs.rhs;
@@ -61,27 +83,29 @@ where
 }
 
 fn main() {
-    //c += a * 3_f32 + b * 2_f32;
     //c << a * 3_f32 + b * 2_f32;
     //let intermediate = a * 3_f32 + b * 2_f32;
     //c << intermediate;
 
+    // TODO: is it possible to use target slice as source?
+    //c << a * 3_f32 + c * 2_f32;
+
     //let init = uninit << foo * bar;
 
-    //a << 2.5; // fill
+    //a << 2.5; // fill (memset?)
 
     //a *= 4.0;
 
     // If a and b are slices, this is less efficient than copy_from_slice():
     //a << b;
 
-    let array = [1., 2., 3., 4.];
     let mut target = [0., 0., 0., 0.];
 
     let mut d = MutSlice { data: &mut target };
 
     {
-        let e = Slice { data: &array };
+        let vec = vec![1., 2., 3., 4.];
+        let e = Slice { data: &vec };
 
         d += e * 2.0;
         dbg!(&d.data);
@@ -90,7 +114,9 @@ fn main() {
         // NB: target can live longer than the source slice
     }
     dbg!(target);
+    let a = Slice { data: &[0.1, 0.2, 0.3] };
+    let b = Slice { data: &[0.4, 0.5, 0.6] };
     let mut g = MutSlice { data: &mut target };
-    g += Slice { data: &array } * 100.0;
+    g += a * 100_f32 + b * 10_f32;
     dbg!(target);
 }
