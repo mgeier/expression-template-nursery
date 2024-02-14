@@ -1,4 +1,10 @@
-use std::ops::{AddAssign, Mul};
+// TODO: compatibility with narray?
+
+// TODO: SIMD support, somehow?
+
+// TODO: support iterators in addition to slices? maybe dasp_signal::Signal?
+
+// TODO: support both dynamic and const size for blocks/slices?
 
 #[derive(Copy, Clone)]
 struct Slice<'a> {
@@ -9,26 +15,45 @@ struct MutSlice<'a> {
     data: &'a mut [f32],
 }
 
-// TODO: generalize
-struct LazySlice<'a> {
-    lhs: Slice<'a>,
-    rhs: f32,
+// VS: vector, scalar
+struct MulVS<L, R> {
+    lhs: L,
+    rhs: R,
 }
 
-impl<'a> Mul<f32> for Slice<'a> {
-    type Output = LazySlice<'a>;
+/*
+impl<'a> std::ops::Mul<f32> for Slice<'a> {
+    type Output = MulVS<Slice<'a>, f32>;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        LazySlice { lhs: self, rhs }
+        Self::Output { lhs: self, rhs }
+    }
+}
+*/
+
+impl<'a> std::ops::Mul<f32> for Slice<'a> {
+    type Output = MulVS<&'a [f32], f32>;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            lhs: self.data,
+            rhs,
+        }
     }
 }
 
-impl<'a> AddAssign<LazySlice<'a>> for MutSlice<'_> {
-    fn add_assign(&mut self, rhs: LazySlice<'a>) {
+impl<'r, L, R> std::ops::AddAssign<MulVS<L, R>> for MutSlice<'_>
+where
+    R: 'r + Copy,
+    L: IntoIterator<Item = &'r R>,
+    R: std::ops::Mul<R>,
+    f32: std::ops::AddAssign<R::Output>,
+{
+    fn add_assign(&mut self, rhs: MulVS<L, R>) {
         // TODO: assert same length
 
-        for (src, target) in rhs.lhs.data.iter().zip(self.data.iter_mut()) {
-            *target += src * rhs.rhs;
+        for (src, target) in rhs.lhs.into_iter().zip(self.data.iter_mut()) {
+            *target += *src * rhs.rhs;
         }
     }
 }
@@ -41,7 +66,12 @@ fn main() {
 
     //let init = uninit << foo * bar;
 
+    //a << 2.5; // fill
+
     //a *= 4.0;
+
+    // If a and b are slices, this is less efficient than copy_from_slice():
+    //a << b;
 
     let array = [1., 2., 3., 4.];
     let mut target = [0., 0., 0., 0.];
